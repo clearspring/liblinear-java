@@ -1,5 +1,8 @@
 package de.bwaldvogel.liblinear;
 
+import libsvm.svm.model.Feature;
+import libsvm.svm.model.FeatureNode;
+
 class L2R_LrFunction implements Function {
 
     private final double[] C;

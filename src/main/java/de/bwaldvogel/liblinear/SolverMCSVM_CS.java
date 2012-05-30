@@ -1,10 +1,7 @@
 package de.bwaldvogel.liblinear;
 
-import static de.bwaldvogel.liblinear.Linear.copyOf;
-import static de.bwaldvogel.liblinear.Linear.info;
-import static de.bwaldvogel.liblinear.Linear.swap;
-
-
+import libsvm.svm.model.Feature;
+import libsvm.svm.model.FeatureNode;
 /**
  * A coordinate descent algorithm for
  * multi-class support vector machines by Crammer and Singer
@@ -38,6 +35,8 @@ class SolverMCSVM_CS {
     private final int      w_size, l;
     private final int      nr_class;
     private final Problem  prob;
+    private Utils utils;
+    private ArraySorter arraySorter;
 
     public SolverMCSVM_CS( Problem prob, int nr_class, double[] C ) {
         this(prob, nr_class, C, 0.1);
@@ -58,6 +57,8 @@ class SolverMCSVM_CS {
         this.C = weighted_C;
         this.B = new double[nr_class];
         this.G = new double[nr_class];
+        utils = new Utils();
+        arraySorter = new ArraySorter();
     }
 
     private int GETI(int i) {
@@ -111,8 +112,8 @@ class SolverMCSVM_CS {
 
             for (i = 0; i < active_size; i++) {
                 // int j = i+rand()%(active_size-i);
-                int j = i + Linear.random.nextInt(active_size - i);
-                swap(index, i, j);
+                int j = i + utils.getRandom().nextInt(active_size - i);
+                utils.swap(index, i, j);
             }
             for (s = 0; s < active_size; s++) {
 
@@ -155,8 +156,8 @@ class SolverMCSVM_CS {
                             active_size_i[i]--;
                             while (active_size_i[i] > m) {
                                 if (!be_shrunk(i, active_size_i[i], y_index[i], alpha_i.get(alpha_index_i.get(active_size_i[i])), minG)) {
-                                    swap(alpha_index_i, m, active_size_i[i]);
-                                    swap(G, m, active_size_i[i]);
+                                    utils.swap(alpha_index_i, m, active_size_i[i]);
+                                    utils.swap(G, m, active_size_i[i]);
                                     if (y_index[i] == active_size_i[i])
                                         y_index[i] = m;
                                     else if (y_index[i] == m) y_index[i] = active_size_i[i];
@@ -169,7 +170,7 @@ class SolverMCSVM_CS {
 
                     if (active_size_i[i] <= 1) {
                         active_size--;
-                        swap(index, s, active_size);
+                        utils.swap(index, s, active_size);
                         s--;
                         continue;
                     }
@@ -207,7 +208,7 @@ class SolverMCSVM_CS {
             iter++;
 
             if (iter % 10 == 0) {
-                info(".");
+                utils.info(".");
             }
 
             if (stopping < eps_shrink) {
@@ -217,7 +218,7 @@ class SolverMCSVM_CS {
                     active_size = l;
                     for (i = 0; i < l; i++)
                         active_size_i[i] = nr_class;
-                    info("*");
+                    utils.info("*");
                     eps_shrink = Math.max(eps_shrink / 2, eps);
                     start_from_all = true;
                 }
@@ -225,8 +226,8 @@ class SolverMCSVM_CS {
                 start_from_all = false;
         }
 
-        info("%noptimization finished, #iter = %d%n", iter);
-        if (iter >= max_iter) info("%nWARNING: reaching max number of iterations%n");
+        utils.info("%noptimization finished, #iter = %d%n", iter);
+        if (iter >= max_iter) utils.info("%nWARNING: reaching max number of iterations%n");
 
         // calculate objective value
         double v = 0;
@@ -240,8 +241,8 @@ class SolverMCSVM_CS {
         }
         for (i = 0; i < l; i++)
             v -= alpha[i * nr_class + prob.y[i]];
-        info("Objective value = %f%n", v);
-        info("nSV = %d%n", nSV);
+        utils.info("Objective value = %f%n", v);
+        utils.info("nSV = %d%n", nSV);
 
     }
 
@@ -249,13 +250,13 @@ class SolverMCSVM_CS {
 
         int r;
         assert active_i <= B.length; // no padding
-        double[] D = copyOf(B, active_i);
+        double[] D = utils.copyOf(B, active_i);
         // clone(D, B, active_i);
 
         if (yi < active_i) D[yi] += A_i * C_yi;
 
         // qsort(D, active_i, sizeof(double), compare_double);
-        ArraySorter.reversedMergesort(D);
+        arraySorter.reversedMergesort(D);
 
         double beta = D[0] - A_i * C_yi;
         for (r = 1; r < active_i && beta < r * D[r]; r++)

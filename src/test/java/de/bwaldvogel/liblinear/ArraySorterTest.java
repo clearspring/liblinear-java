@@ -1,6 +1,5 @@
 package de.bwaldvogel.liblinear;
 
-import static de.bwaldvogel.liblinear.Linear.swap;
 import static org.fest.assertions.Assertions.assertThat;
 
 import java.util.Random;
@@ -11,6 +10,8 @@ import org.junit.Test;
 public class ArraySorterTest {
 
     private Random random = new Random();
+    private ArraySorter arraySorter = new ArraySorter();
+    private Utils utils = new Utils();
 
     private void assertDescendingOrder(double[] array) {
         double before = array[0];
@@ -27,7 +28,7 @@ public class ArraySorterTest {
 
         for (int i = 0; i < array.length; i++) {
             int j = random.nextInt(array.length);
-            swap(array, i, j);
+            utils.swap(array, i, j);
         }
     }
 
@@ -41,7 +42,7 @@ public class ArraySorterTest {
                 array[i] = random.nextDouble();
             }
 
-            ArraySorter.reversedMergesort(array);
+            arraySorter.reversedMergesort(array);
             assertDescendingOrder(array);
         }
     }
@@ -50,7 +51,7 @@ public class ArraySorterTest {
     public void testReversedMergesortWithMeanValues() {
         double[] array = new double[] {1.0, -0.0, -1.1, 2.0, 3.0, 0.0, 4.0, -0.0, 0.0};
         shuffleArray(array);
-        ArraySorter.reversedMergesort(array);
+        arraySorter.reversedMergesort(array);
         assertDescendingOrder(array);
     }
 }

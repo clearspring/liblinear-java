@@ -1,5 +1,8 @@
 package de.bwaldvogel.liblinear;
 
+import libsvm.svm.model.Feature;
+import libsvm.svm.model.FeatureNode;
+
 import static org.fest.assertions.Assertions.assertThat;
 
 import org.junit.Test;

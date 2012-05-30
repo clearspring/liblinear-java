@@ -3,6 +3,8 @@ package de.bwaldvogel.liblinear;
 import java.io.File;
 import java.io.IOException;
 
+import libsvm.svm.model.Feature;
+import libsvm.svm.model.FeatureNode;
 
 /**
  * <p>Describes the problem</p>

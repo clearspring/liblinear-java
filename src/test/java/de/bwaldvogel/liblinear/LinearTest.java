@@ -20,15 +20,18 @@ import org.fest.assertions.Delta;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.powermock.api.mockito.PowerMockito;
-
+import libsvm.svm.model.Feature;
+import libsvm.svm.model.FeatureNode;
 
 public class LinearTest {
 
     private static Random random = new Random(12345);
+    private static Linear linear = new Linear();
+    private static Utils utils = new Utils();
 
     @BeforeClass
     public static void disableDebugOutput() {
-        Linear.disableDebugOutput();
+    	linear.disableDebugOutput();
     }
 
     public static Model createRandomModel() {
@@ -118,7 +121,7 @@ public class LinearTest {
                 if (C < 0.7) if (solver == SolverType.L1R_LR) continue;
 
                 Parameter param = new Parameter(solver, C, 0.1);
-                Model model = Linear.train(prob, param);
+                Model model = linear.train(prob, param);
 
                 double[] featureWeights = model.getFeatureWeights();
                 if (solver == SolverType.MCSVM_CS) {
@@ -129,11 +132,11 @@ public class LinearTest {
 
                 int i = 0;
                 for (int value : prob.y) {
-                    int prediction = Linear.predict(model, prob.x[i]);
+                    int prediction = linear.predict(model, prob.x[i]);
                     assertThat(prediction).isEqualTo(value);
                     if (model.isProbabilityModel()) {
                         double[] estimates = new double[model.getNrClass()];
-                        int probabilityPrediction = Linear.predictProbability(model, prob.x[i], estimates);
+                        int probabilityPrediction = linear.predictProbability(model, prob.x[i], estimates);
                         assertThat(probabilityPrediction).isEqualTo(prediction);
                         assertThat(estimates[probabilityPrediction]).isGreaterThanOrEqualTo(1.0 / model.getNrClass());
                         double estimationSum = 0;
@@ -158,7 +161,7 @@ public class LinearTest {
         Parameter param = new Parameter(SolverType.L2R_LR, 10, 0.01);
         int nr_fold = 10;
         int[] target = new int[prob.l];
-        Linear.crossValidation(prob, param, nr_fold, target);
+        linear.crossValidation(prob, param, nr_fold, target);
 
         for (int clazz : target) {
             assertThat(clazz).isGreaterThanOrEqualTo(0).isLessThan(numClasses);
@@ -199,7 +202,7 @@ public class LinearTest {
 
         Parameter param = new Parameter(SolverType.L2R_LR, 10, 0.1);
         try {
-            Linear.train(prob, param);
+            linear.train(prob, param);
             fail("IllegalArgumentException expected");
         } catch (IllegalArgumentException e) {
             assertThat(e.getMessage()).contains("nodes").contains("sorted").contains("ascending").contains("order");
@@ -221,7 +224,7 @@ public class LinearTest {
         for (SolverType solverType : SolverType.values()) {
             Parameter param = new Parameter(solverType, 10, 0.1);
             try {
-                Linear.train(prob, param);
+                linear.train(prob, param);
                 fail("IllegalArgumentException expected");
             } catch (IllegalArgumentException e) {
                 assertThat(e.getMessage()).contains("number of classes").contains("too large");
@@ -233,7 +236,7 @@ public class LinearTest {
     public void testRealloc() {
 
         int[] f = new int[] {1, 2, 3};
-        f = Linear.copyOf(f, 5);
+        f = utils.copyOf(f, 5);
         f[3] = 4;
         f[4] = 5;
         assertThat(f).isEqualTo(new int[] {1, 2, 3, 4, 5});
@@ -347,7 +350,7 @@ public class LinearTest {
         prob.y[2] = 1;
         prob.y[3] = 0;
 
-        Problem transposed = Linear.transpose(prob);
+        Problem transposed = linear.transpose(prob);
 
         assertThat(transposed.x[0].length).isEqualTo(1);
         assertThat(transposed.x[1].length).isEqualTo(2);
@@ -445,7 +448,7 @@ public class LinearTest {
         prob.y[3] = 0;
         prob.y[4] = 1;
 
-        Problem transposed = Linear.transpose(prob);
+        Problem transposed = linear.transpose(prob);
 
         assertThat(transposed.x[0]).hasSize(3);
         assertThat(transposed.x[1]).hasSize(2);
@@ -537,7 +540,7 @@ public class LinearTest {
 
         prob.x[3][0] = new FeatureNode(3, 2);
 
-        Problem transposed = Linear.transpose(prob);
+        Problem transposed = linear.transpose(prob);
         assertThat(transposed.x).hasSize(4);
         assertThat(transposed.x[0]).hasSize(2);
         assertThat(transposed.x[1]).hasSize(2);

@@ -11,6 +11,8 @@ import java.util.Collection;
 
 import org.junit.Test;
 
+import libsvm.svm.model.Feature;
+import libsvm.svm.model.FeatureNode;
 
 public class TrainTest {
 

@@ -10,14 +10,15 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
-import java.io.PrintStream;
 import java.io.Reader;
 import java.io.Writer;
 import java.nio.charset.Charset;
 import java.util.Formatter;
 import java.util.Locale;
-import java.util.Random;
 import java.util.regex.Pattern;
+
+import libsvm.svm.model.Feature;
+import libsvm.svm.model.FeatureNode;
 
 
 /**
@@ -36,19 +37,58 @@ public class Linear {
 
     static final Locale        DEFAULT_LOCALE      = Locale.ENGLISH;
 
-    private static Object      OUTPUT_MUTEX        = new Object();
-    private static PrintStream DEBUG_OUTPUT        = System.out;
-
     /** platform-independent new-line string */
     final static String        NL                  = System.getProperty("line.separator");
+    
+    private Utils utils;
 
-    private static final long  DEFAULT_RANDOM_SEED = 0L;
-    static Random              random              = new Random(DEFAULT_RANDOM_SEED);
+    public Linear()
+    {
+    	utils = new Utils();
+    }
+    
+    
+    /**
+	 * @param s
+	 *            the string to parse for the double value
+	 * @throws IllegalArgumentException
+	 *             if s is empty or represents NaN or Infinity
+	 * @throws NumberFormatException
+	 *             see {@link Double#parseDouble(String)}
+	 */
+	static double atof(String s) {
+		if (s == null || s.length() < 1)
+			throw new IllegalArgumentException(
+					"Can't convert empty string to integer");
+		double d = Double.parseDouble(s);
+		if (Double.isNaN(d) || Double.isInfinite(d)) {
+			throw new IllegalArgumentException("NaN or Infinity in input: " + s);
+		}
+		return (d);
+	}
 
+	/**
+	 * @param s
+	 *            the string to parse for the integer value
+	 * @throws IllegalArgumentException
+	 *             if s is empty
+	 * @throws NumberFormatException
+	 *             see {@link Integer#parseInt(String)}
+	 */
+	static int atoi(String s) throws NumberFormatException {
+		if (s == null || s.length() < 1)
+			throw new IllegalArgumentException(
+					"Can't convert empty string to integer");
+		// Integer.parseInt doesn't accept '+' prefixed strings
+		if (s.charAt(0) == '+')
+			s = s.substring(1);
+		return Integer.parseInt(s);
+	}
+	
     /**
      * @param target predicted classes
      */
-    public static void crossValidation(Problem prob, Parameter param, int nr_fold, int[] target) {
+    public  void crossValidation(Problem prob, Parameter param, int nr_fold, int[] target) {
         int i;
         int[] fold_start = new int[nr_fold + 1];
         int l = prob.l;
@@ -57,8 +97,8 @@ public class Linear {
         for (i = 0; i < l; i++)
             perm[i] = i;
         for (i = 0; i < l; i++) {
-            int j = i + random.nextInt(l - i);
-            swap(perm, i, j);
+            int j = i + utils.getRandom().nextInt(l - i);
+            utils.swap(perm, i, j);
         }
         for (i = 0; i <= nr_fold; i++)
             fold_start[i] = i * l / nr_fold;
@@ -93,7 +133,7 @@ public class Linear {
     }
 
     /** used as complex return type */
-    private static class GroupClassesReturn {
+    private  class GroupClassesReturn {
 
         final int[] count;
         final int[] label;
@@ -108,7 +148,7 @@ public class Linear {
         }
     }
 
-    private static GroupClassesReturn groupClasses(Problem prob, int[] perm) {
+    private  GroupClassesReturn groupClasses(Problem prob, int[] perm) {
         int l = prob.l;
         int max_nr_class = 16;
         int nr_class = 0;
@@ -131,8 +171,8 @@ public class Linear {
             if (j == nr_class) {
                 if (nr_class == max_nr_class) {
                     max_nr_class *= 2;
-                    label = copyOf(label, max_nr_class);
-                    count = copyOf(count, max_nr_class);
+                    label = utils.copyOf(label, max_nr_class);
+                    count = utils.copyOf(count, max_nr_class);
                 }
                 label[nr_class] = this_label;
                 count[nr_class] = 1;
@@ -153,66 +193,6 @@ public class Linear {
             start[i] = start[i - 1] + count[i - 1];
 
         return new GroupClassesReturn(nr_class, label, start, count);
-    }
-
-    static void info(String message) {
-        synchronized (OUTPUT_MUTEX) {
-            if (DEBUG_OUTPUT == null) return;
-            DEBUG_OUTPUT.printf(message);
-            DEBUG_OUTPUT.flush();
-        }
-    }
-
-    static void info(String format, Object... args) {
-        synchronized (OUTPUT_MUTEX) {
-            if (DEBUG_OUTPUT == null) return;
-            DEBUG_OUTPUT.printf(format, args);
-            DEBUG_OUTPUT.flush();
-        }
-    }
-
-    /**
-     * @param s the string to parse for the double value
-     * @throws IllegalArgumentException if s is empty or represents NaN or Infinity
-     * @throws NumberFormatException see {@link Double#parseDouble(String)}
-     */
-    static double atof(String s) {
-        if (s == null || s.length() < 1) throw new IllegalArgumentException("Can't convert empty string to integer");
-        double d = Double.parseDouble(s);
-        if (Double.isNaN(d) || Double.isInfinite(d)) {
-            throw new IllegalArgumentException("NaN or Infinity in input: " + s);
-        }
-        return (d);
-    }
-
-    /**
-     * @param s the string to parse for the integer value
-     * @throws IllegalArgumentException if s is empty
-     * @throws NumberFormatException see {@link Integer#parseInt(String)}
-     */
-    static int atoi(String s) throws NumberFormatException {
-        if (s == null || s.length() < 1) throw new IllegalArgumentException("Can't convert empty string to integer");
-        // Integer.parseInt doesn't accept '+' prefixed strings
-        if (s.charAt(0) == '+') s = s.substring(1);
-        return Integer.parseInt(s);
-    }
-
-    /**
-     * Java5 'backport' of Arrays.copyOf
-     */
-    public static double[] copyOf(double[] original, int newLength) {
-        double[] copy = new double[newLength];
-        System.arraycopy(original, 0, copy, 0, Math.min(original.length, newLength));
-        return copy;
-    }
-
-    /**
-     * Java5 'backport' of Arrays.copyOf
-     */
-    public static int[] copyOf(int[] original, int newLength) {
-        int[] copy = new int[newLength];
-        System.arraycopy(original, 0, copy, 0, Math.min(original.length, newLength));
-        return copy;
     }
 
     /**
@@ -239,7 +219,11 @@ public class Linear {
             String line = null;
             while ((line = reader.readLine()) != null) {
                 String[] split = whitespace.split(line);
-                if (split[0].equals("solver_type")) {
+                if (split[0].equals("labels"))
+    			{
+    				String[] labelStrings = split[1].split("\\,");
+    				model.setLabelName(labelStrings);
+    			} else if (split[0].equals("solver_type")) {
                     SolverType solver = SolverType.valueOf(split[1]);
                     if (solver == null) {
                         throw new RuntimeException("unknown solver type");
@@ -307,14 +291,14 @@ public class Linear {
         return loadModel(inputReader);
     }
 
-    static void closeQuietly(Closeable c) {
+     static void closeQuietly(Closeable c) {
         if (c == null) return;
         try {
             c.close();
         } catch (Throwable t) {}
     }
 
-    public static int predict(Model model, Feature[] x) {
+    public  int predict(Model model, Feature[] x) {
         double[] dec_values = new double[model.nr_class];
         return predictValues(model, x, dec_values);
     }
@@ -322,7 +306,7 @@ public class Linear {
     /**
      * @throws IllegalArgumentException if model is not probabilistic (see {@link Model#isProbabilityModel()})
      */
-    public static int predictProbability(Model model, Feature[] x, double[] prob_estimates) throws IllegalArgumentException {
+    public  int predictProbability(Model model, Feature[] x, double[] prob_estimates) throws IllegalArgumentException {
         if (!model.isProbabilityModel()) {
             throw new IllegalArgumentException("probability output is only supported for logistic regression");
         }
@@ -351,7 +335,7 @@ public class Linear {
         return label;
     }
 
-    public static int predictValues(Model model, Feature[] x, double[] dec_values) {
+    public  int predictValues(Model model, Feature[] x, double[] dec_values) {
         int n;
         if (model.bias >= 0)
             n = model.nr_feature + 1;
@@ -391,7 +375,7 @@ public class Linear {
     }
 
 
-    static void printf(Formatter formatter, String format, Object... args) throws IOException {
+     static void printf(Formatter formatter, String format, Object... args) throws IOException {
         formatter.format(format, args);
         IOException ioException = formatter.ioException();
         if (ioException != null) throw ioException;
@@ -403,7 +387,7 @@ public class Linear {
      *
      * <p><b>Note: The modelOutput is closed after reading or in case of an exception.</b></p>
      */
-    public static void saveModel(Writer modelOutput, Model model) throws IOException {
+    public static  void saveModel(Writer modelOutput, Model model) throws IOException {
         int nr_feature = model.nr_feature;
         int w_size = nr_feature;
         if (model.bias >= 0) w_size++;
@@ -453,7 +437,7 @@ public class Linear {
      * Writes the model to the file with ISO-8859-1 charset.
      * It uses {@link java.util.Locale#ENGLISH} for number formatting.
      */
-    public static void saveModel(File modelFile, Model model) throws IOException {
+    public static  void saveModel(File modelFile, Model model) throws IOException {
         BufferedWriter modelOutput = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(modelFile), FILE_CHARSET));
         saveModel(modelOutput, model);
     }
@@ -462,7 +446,7 @@ public class Linear {
      * this method corresponds to the following define in the C version:
      * #define GETI(i) (y[i]+1)
      */
-    private static int GETI(byte[] y, int i) {
+    private  int GETI(byte[] y, int i) {
         return y[i] + 1;
     }
 
@@ -494,7 +478,7 @@ public class Linear {
      * See Algorithm 3 of Hsieh et al., ICML 2008
      *</pre>
      */
-    private static void solve_l2r_l1l2_svc(Problem prob, double[] w, double eps, double Cp, double Cn, SolverType solver_type) {
+    private  void solve_l2r_l1l2_svc(Problem prob, double[] w, double eps, double Cp, double Cn, SolverType solver_type) {
         int l = prob.l;
         int w_size = prob.n;
         int i, s, iter = 0;
@@ -544,8 +528,8 @@ public class Linear {
             PGmin_new = Double.POSITIVE_INFINITY;
 
             for (i = 0; i < active_size; i++) {
-                int j = i + random.nextInt(active_size - i);
-                swap(index, i, j);
+                int j = i + utils.getRandom().nextInt(active_size - i);
+                utils.swap(index, i, j);
             }
 
             for (s = 0; s < active_size; s++) {
@@ -565,7 +549,7 @@ public class Linear {
                 if (alpha[i] == 0) {
                     if (G > PGmax_old) {
                         active_size--;
-                        swap(index, s, active_size);
+                        utils.swap(index, s, active_size);
                         s--;
                         continue;
                     } else if (G < 0) {
@@ -574,7 +558,7 @@ public class Linear {
                 } else if (alpha[i] == C) {
                     if (G < PGmin_old) {
                         active_size--;
-                        swap(index, s, active_size);
+                        utils.swap(index, s, active_size);
                         s--;
                         continue;
                     } else if (G > 0) {
@@ -599,14 +583,14 @@ public class Linear {
             }
 
             iter++;
-            if (iter % 10 == 0) info(".");
+            if (iter % 10 == 0) utils.info(".");
 
             if (PGmax_new - PGmin_new <= eps) {
                 if (active_size == l)
                     break;
                 else {
                     active_size = l;
-                    info("*");
+                    utils.info("*");
                     PGmax_old = Double.POSITIVE_INFINITY;
                     PGmin_old = Double.NEGATIVE_INFINITY;
                     continue;
@@ -618,8 +602,8 @@ public class Linear {
             if (PGmin_old >= 0) PGmin_old = Double.NEGATIVE_INFINITY;
         }
 
-        info(NL + "optimization finished, #iter = %d" + NL, iter);
-        if (iter >= max_iter) info("%nWARNING: reaching max number of iterations%nUsing -s 2 may be faster (also see FAQ)%n%n");
+        utils.info(NL + "optimization finished, #iter = %d" + NL, iter);
+        if (iter >= max_iter) utils.info("%nWARNING: reaching max number of iterations%nUsing -s 2 may be faster (also see FAQ)%n%n");
 
         // calculate objective value
 
@@ -631,8 +615,8 @@ public class Linear {
             v += alpha[i] * (alpha[i] * diag[GETI(y, i)] - 2);
             if (alpha[i] > 0) ++nSV;
         }
-        info("Objective value = %f" + NL, v / 2);
-        info("nSV = %d" + NL, nSV);
+        utils.info("Objective value = %f" + NL, v / 2);
+        utils.info("nSV = %d" + NL, nSV);
     }
 
     /**
@@ -657,7 +641,7 @@ public class Linear {
      *
      * @since 1.7
      */
-    private static void solve_l2r_lr_dual(Problem prob, double w[], double eps, double Cp, double Cn) {
+    private  void solve_l2r_lr_dual(Problem prob, double w[], double eps, double Cp, double Cn) {
         int l = prob.l;
         int w_size = prob.n;
         int i, s, iter = 0;
@@ -692,8 +676,8 @@ public class Linear {
 
         while (iter < max_iter) {
             for (i = 0; i < l; i++) {
-                int j = i + random.nextInt(l - i);
-                swap(index, i, j);
+                int j = i + utils.getRandom().nextInt(l - i);
+                utils.swap(index, i, j);
             }
             int newton_iter = 0;
             double Gmax = 0;
@@ -751,7 +735,7 @@ public class Linear {
             }
 
             iter++;
-            if (iter % 10 == 0) info(".");
+            if (iter % 10 == 0) utils.info(".");
 
             if (Gmax < eps) break;
 
@@ -761,8 +745,8 @@ public class Linear {
 
         }
 
-        info("%noptimization finished, #iter = %d%n", iter);
-        if (iter >= max_iter) info("%nWARNING: reaching max number of iterations%nUsing -s 0 may be faster (also see FAQ)%n%n");
+        utils.info("%noptimization finished, #iter = %d%n", iter);
+        if (iter >= max_iter) utils.info("%nWARNING: reaching max number of iterations%nUsing -s 0 may be faster (also see FAQ)%n%n");
 
         // calculate objective value
 
@@ -773,7 +757,7 @@ public class Linear {
         for (i = 0; i < l; i++)
             v += alpha[2 * i] * Math.log(alpha[2 * i]) + alpha[2 * i + 1] * Math.log(alpha[2 * i + 1]) - upper_bound[GETI(y, i)]
                 * Math.log(upper_bound[GETI(y, i)]);
-        info("Objective value = %f%n", v);
+        utils.info("Objective value = %f%n", v);
     }
 
     /**
@@ -794,7 +778,7 @@ public class Linear {
      *
      * @since 1.5
      */
-    private static void solve_l1r_l2_svc(Problem prob_col, double[] w, double eps, double Cp, double Cn) {
+    private  void solve_l1r_l2_svc(Problem prob_col, double[] w, double eps, double Cp, double Cn) {
         int l = prob_col.l;
         int w_size = prob_col.n;
         int j, s, iter = 0;
@@ -843,8 +827,8 @@ public class Linear {
             Gnorm1_new = 0;
 
             for (j = 0; j < active_size; j++) {
-                int i = j + random.nextInt(active_size - j);
-                swap(index, i, j);
+                int i = j + utils.getRandom().nextInt(active_size - j);
+                utils.swap(index, i, j);
             }
 
             for (s = 0; s < active_size; s++) {
@@ -877,7 +861,7 @@ public class Linear {
                         violation = Gn;
                     else if (Gp > Gmax_old / l && Gn < -Gmax_old / l) {
                         active_size--;
-                        swap(index, s, active_size);
+                        utils.swap(index, s, active_size);
                         s--;
                         continue;
                     }
@@ -954,7 +938,7 @@ public class Linear {
 
                 // recompute b[] if line search takes too many steps
                 if (num_linesearch >= max_num_linesearch) {
-                    info("#");
+                	utils.info("#");
                     for (int i = 0; i < l; i++)
                         b[i] = 1;
 
@@ -971,14 +955,14 @@ public class Linear {
                 Gnorm1_init = Gnorm1_new;
             }
             iter++;
-            if (iter % 10 == 0) info(".");
+            if (iter % 10 == 0) utils.info(".");
 
             if (Gmax_new <= eps * Gnorm1_init) {
                 if (active_size == w_size)
                     break;
                 else {
                     active_size = w_size;
-                    info("*");
+                    utils.info("*");
                     Gmax_old = Double.POSITIVE_INFINITY;
                     continue;
                 }
@@ -987,8 +971,8 @@ public class Linear {
             Gmax_old = Gmax_new;
         }
 
-        info("%noptimization finished, #iter = %d%n", iter);
-        if (iter >= max_iter) info("%nWARNING: reaching max number of iterations%n");
+        utils.info("%noptimization finished, #iter = %d%n", iter);
+        if (iter >= max_iter) utils.info("%nWARNING: reaching max number of iterations%n");
 
         // calculate objective value
 
@@ -1006,8 +990,8 @@ public class Linear {
         for (j = 0; j < l; j++)
             if (b[j] > 0) v += C[GETI(y, j)] * b[j] * b[j];
 
-        info("Objective value = %f%n", v);
-        info("#nonzeros/#features = %d/%d%n", nnz, w_size);
+        utils.info("Objective value = %f%n", v);
+        utils.info("#nonzeros/#features = %d/%d%n", nnz, w_size);
     }
 
     /**
@@ -1028,7 +1012,7 @@ public class Linear {
      *
      * @since 1.5
      */
-    private static void solve_l1r_lr(Problem prob_col, double[] w, double eps, double Cp, double Cn) {
+    private  void solve_l1r_lr(Problem prob_col, double[] w, double eps, double Cp, double Cn) {
         int l = prob_col.l;
         int w_size = prob_col.n;
         int j, s, newton_iter = 0, iter = 0;
@@ -1115,7 +1099,7 @@ public class Linear {
                     //outer-level shrinking
                     else if (Gp > Gmax_old / l && Gn < -Gmax_old / l) {
                         active_size--;
-                        swap(index, s, active_size);
+                        utils.swap(index, s, active_size);
                         s--;
                         continue;
                     }
@@ -1145,8 +1129,8 @@ public class Linear {
                 QP_Gnorm1_new = 0;
 
                 for (j = 0; j < QP_active_size; j++) {
-                    int i = random.nextInt(QP_active_size - j);
-                    swap(index, i, j);
+                    int i = utils.getRandom().nextInt(QP_active_size - j);
+                    utils.swap(index, i, j);
                 }
 
                 for (s = 0; s < QP_active_size; s++) {
@@ -1170,7 +1154,7 @@ public class Linear {
                         //inner-level shrinking
                         else if (Gp > QP_Gmax_old / l && Gn < -QP_Gmax_old / l) {
                             QP_active_size--;
-                            swap(index, s, QP_active_size);
+                            utils.swap(index, s, QP_active_size);
                             s--;
                             continue;
                         }
@@ -1218,7 +1202,7 @@ public class Linear {
                 QP_Gmax_old = QP_Gmax_new;
             }
 
-            if (iter >= max_iter) info("WARNING: reaching max number of inner iterations\n");
+            if (iter >= max_iter) utils.info("WARNING: reaching max number of inner iterations\n");
 
             delta = 0;
             w_norm_new = 0;
@@ -1287,12 +1271,12 @@ public class Linear {
             newton_iter++;
             Gmax_old = Gmax_new;
 
-            info("iter %3d  #CD cycles %d%n", newton_iter, iter);
+            utils.info("iter %3d  #CD cycles %d%n", newton_iter, iter);
         }
 
-        info("=========================%n");
-        info("optimization finished, #iter = %d%n", newton_iter);
-        if (newton_iter >= max_newton_iter) info("WARNING: reaching max number of iterations%n");
+        utils.info("=========================%n");
+        utils.info("optimization finished, #iter = %d%n", newton_iter);
+        if (newton_iter >= max_newton_iter) utils.info("WARNING: reaching max number of iterations%n");
 
         // calculate objective value
 
@@ -1309,12 +1293,12 @@ public class Linear {
             else
                 v += C[GETI(y, j)] * Math.log(1 + exp_wTx[j]);
 
-        info("Objective value = %f%n", v);
-        info("#nonzeros/#features = %d/%d%n", nnz, w_size);
+        utils.info("Objective value = %f%n", v);
+        utils.info("#nonzeros/#features = %d/%d%n", nnz, w_size);
     }
 
     // transpose matrix X from row format to column format
-    static Problem transpose(Problem prob) {
+     Problem transpose(Problem prob) {
         int l = prob.l;
         int n = prob.n;
         int[] col_ptr = new int[n + 1];
@@ -1350,28 +1334,11 @@ public class Linear {
         return prob_col;
     }
 
-    static void swap(double[] array, int idxA, int idxB) {
-        double temp = array[idxA];
-        array[idxA] = array[idxB];
-        array[idxB] = temp;
-    }
-
-    static void swap(int[] array, int idxA, int idxB) {
-        int temp = array[idxA];
-        array[idxA] = array[idxB];
-        array[idxB] = temp;
-    }
-
-    static void swap(IntArrayPointer array, int idxA, int idxB) {
-        int temp = array.get(idxA);
-        array.set(idxA, array.get(idxB));
-        array.set(idxB, temp);
-    }
 
     /**
      * @throws IllegalArgumentException if the feature nodes of prob are not sorted in ascending order
      */
-    public static Model train(Problem prob, Parameter param) {
+    public  Model train(Problem prob, Parameter param) {
 
         if (prob == null) throw new IllegalArgumentException("problem must not be null");
         if (param == null) throw new IllegalArgumentException("parameter must not be null");
@@ -1494,7 +1461,7 @@ public class Linear {
         return model;
     }
 
-    private static void train_one(Problem prob, Parameter param, double[] w, double Cp, double Cn) {
+    private  void train_one(Problem prob, Parameter param, double[] w, double Cp, double Cn) {
         double eps = param.eps;
         int pos = 0;
         for (int i = 0; i < prob.l; i++)
@@ -1539,26 +1506,19 @@ public class Linear {
         }
     }
 
-    public static void disableDebugOutput() {
-        setDebugOutput(null);
-    }
-
-    public static void enableDebugOutput() {
-        setDebugOutput(System.out);
-    }
-
-    public static void setDebugOutput(PrintStream debugOutput) {
-        synchronized (OUTPUT_MUTEX) {
-            DEBUG_OUTPUT = debugOutput;
-        }
-    }
+   
 
     /**
      * resets the PRNG
      *
      * this is i.a. needed for regression testing (eg. the Weka wrapper)
      */
-    public static void resetRandom() {
-        random = new Random(DEFAULT_RANDOM_SEED);
+    public  void resetRandom() {
+       utils.resetRandom();
     }
+
+
+	public void disableDebugOutput() {
+		utils.disableDebugOutput();
+	}
 }

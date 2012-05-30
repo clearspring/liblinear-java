@@ -18,9 +18,11 @@ public class PredictTest {
     private Model         testModel = LinearTest.createRandomModel();
     private StringBuilder sb        = new StringBuilder();
     private Writer        writer    = new StringWriter();
+    private Predict predict;
 
     @Before
     public void setUp() {
+    	predict = new Predict();
         System.setOut(mock(PrintStream.class)); // dev/null
         assertThat(testModel.getNrClass()).isGreaterThanOrEqualTo(2);
         assertThat(testModel.getNrFeature()).isGreaterThanOrEqualTo(10);
@@ -28,8 +30,7 @@ public class PredictTest {
 
     private void testWithLines(StringBuilder sb) throws Exception {
         BufferedReader reader = new BufferedReader(new StringReader(sb.toString()));
-
-        Predict.doPredict(reader, writer, testModel);
+        predict.doPredict(reader, writer, testModel);
     }
 
     @Test(expected = RuntimeException.class)

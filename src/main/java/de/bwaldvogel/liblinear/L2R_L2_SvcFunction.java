@@ -1,5 +1,8 @@
 package de.bwaldvogel.liblinear;
 
+import libsvm.svm.model.Feature;
+import libsvm.svm.model.FeatureNode;
+
 class L2R_L2_SvcFunction implements Function {
 
     private final Problem  prob;

@@ -5,6 +5,9 @@ import static de.bwaldvogel.liblinear.Linear.atoi;
 import static de.bwaldvogel.liblinear.Linear.closeQuietly;
 import static de.bwaldvogel.liblinear.Linear.printf;
 
+import libsvm.svm.model.Feature;
+import libsvm.svm.model.FeatureNode;
+
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -26,12 +29,19 @@ public class Predict {
 
     private static boolean       flag_predict_probability = false;
 
-    private static final Pattern COLON                    = Pattern.compile(":");
+    private  final Pattern COLON                    = Pattern.compile(":");
+    
+    private Linear linear;
+    
+    public Predict()
+    {
+    	linear = new Linear();
+    }
 
     /**
      * <p><b>Note: The streams are NOT closed</b></p>
      */
-    static void doPredict(BufferedReader reader, Writer writer, Model model) throws IOException {
+    public void doPredict(BufferedReader reader, Writer writer, Model model) throws IOException {
         int correct = 0;
         int total = 0;
 
@@ -105,13 +115,13 @@ public class Predict {
 
             if (flag_predict_probability) {
                 assert prob_estimates != null;
-                predict_label = Linear.predictProbability(model, nodes, prob_estimates);
+                predict_label = linear.predictProbability(model, nodes, prob_estimates);
                 printf(out, "%d", predict_label);
                 for (int j = 0; j < model.nr_class; j++)
                     printf(out, " %g", prob_estimates[j]);
                 printf(out, "\n");
             } else {
-                predict_label = Linear.predict(model, nodes);
+                predict_label = linear.predict(model, nodes);
                 printf(out, "%d\n", predict_label);
             }
 
@@ -123,7 +133,7 @@ public class Predict {
         System.out.printf("Accuracy = %g%% (%d/%d)%n", (double)correct / total * 100, correct, total);
     }
 
-    private static void exit_with_help() {
+    private static  void exit_with_help() {
         System.out.printf("Usage: predict [options] test_file model_file output_file%n" + "options:%n"
             + "-b probability_estimates: whether to output probability estimates, 0 or 1 (default 0)%n");
         System.exit(1);
@@ -131,7 +141,8 @@ public class Predict {
 
     public static void main(String[] argv) throws IOException {
         int i;
-
+        Predict predict = new Predict();
+        
         // parse options
         for (i = 0; i < argv.length; i++) {
             if (argv[i].charAt(0) != '-') break;
@@ -162,7 +173,7 @@ public class Predict {
             writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(argv[i + 2]), Linear.FILE_CHARSET));
 
             Model model = Linear.loadModel(new File(argv[i + 1]));
-            doPredict(reader, writer, model);
+            predict.doPredict(reader, writer, model);
         }
         finally {
             closeQuietly(reader);
